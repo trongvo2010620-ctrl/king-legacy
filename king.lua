@@ -1,8 +1,3 @@
---[[
-    KING LEGACY - AUTO BUY KEY + AUTO RANDOM + AUTO STORE
-    Tự động dò remote, tự check key trong túi. Chỉ cần dán và chạy.
-]]
-
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService  = game:GetService("UserInputService")
@@ -12,9 +7,6 @@ local PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
 local oldGui = PlayerGui:FindFirstChild("KL_AutoGacha")
 if oldGui then oldGui:Destroy() end
 
---==============================================================
--- AUTO DÒ REMOTE
---==============================================================
 local function scanRemotes()
     local found = { Buy = {}, Random = {}, Store = {} }
     for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
@@ -38,33 +30,13 @@ local BuyKeyRemote     = Remotes.Buy[1]
 local RandomRemote     = Remotes.Random[1]
 local StoreFruitRemote = Remotes.Store[1]
 
---==============================================================
--- AUTO CHECK INVENTORY (đọc số key đang có)
---==============================================================
-local function countKeys(keyType)
-    local count = 0
-    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-    if not pg then return 0 end
-    for _, gui in ipairs(pg:GetDescendants()) do
-        if gui:IsA("TextLabel") then
-            local t = gui.Text:lower()
-            if t:find(keyType:lower()) then
-                local num = t:match("(%d+)")
-                if num then count = math.max(count, tonumber(num)) end
-            end
-        end
-    end
-    return count
-end
-
 local function hasAnyKey()
     local pg = LocalPlayer:FindFirstChild("PlayerGui")
     if not pg then return false end
     for _, gui in ipairs(pg:GetDescendants()) do
         if gui:IsA("TextLabel") or gui:IsA("TextButton") then
             local t = gui.Text:lower()
-            if (t:find("copper") or t:find("iron") or t:find("gold"))
-                and t:find("%d") then
+            if (t:find("copper") or t:find("iron") or t:find("gold")) and t:find("%d") then
                 local num = t:match("(%d+)")
                 if num and tonumber(num) > 0 then return true end
             end
@@ -73,9 +45,6 @@ local function hasAnyKey()
     return false
 end
 
---==============================================================
--- STATE
---==============================================================
 local State = {
     Running    = false,
     AutoBuy    = true,
@@ -86,9 +55,6 @@ local State = {
     Stats = { Bought = 0, Rolled = 0, Stored = 0 },
 }
 
---==============================================================
--- GUI
---==============================================================
 local GUI = Instance.new("ScreenGui")
 GUI.Name = "KL_AutoGacha"
 GUI.ResetOnSpawn = false
@@ -127,7 +93,6 @@ StatusLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
 StatusLabel.Text = "Chờ lệnh..."
 StatusLabel.Parent = Frame
 
--- Bảng thông tin tự check
 local InfoFrame = Instance.new("Frame")
 InfoFrame.Size = UDim2.new(1, -20, 0, 54)
 InfoFrame.Position = UDim2.fromOffset(10, 54)
@@ -149,9 +114,9 @@ InfoLabel.Text = "Đang dò..."
 InfoLabel.Parent = InfoFrame
 
 local function updateInfo()
-    local b = BuyKeyRemote and "OK" or "✗"
-    local r = RandomRemote and "OK" or "✗"
-    local s = StoreFruitRemote and "OK" or "✗"
+    local b = BuyKeyRemote and "OK" or "X"
+    local r = RandomRemote and "OK" or "X"
+    local s = StoreFruitRemote and "OK" or "X"
     InfoLabel.Text = string.format(
         "Remote: Buy[%s] Random[%s] Store[%s]\nCó key: %s\nĐã mua:%d Roll:%d Store:%d",
         b, r, s,
@@ -232,9 +197,6 @@ StartButton.Font = Enum.Font.GothamBold
 
 updateInfo()
 
---==============================================================
--- VÒNG LẶP
---==============================================================
 local loopThread = nil
 
 local function startLoop()
@@ -242,7 +204,6 @@ local function startLoop()
     loopThread = task.spawn(function()
         while State.Running do
             pcall(function()
-                -- Mua key nếu bật và có remote
                 if State.AutoBuy and BuyKeyRemote then
                     StatusLabel.Text = string.format("Mua %d %s key...",
                         State.BuyAmount, State.KeyType)
@@ -251,10 +212,8 @@ local function startLoop()
                     task.wait(0.6)
                 end
 
-                -- Random: ưu tiên key đang có, nếu hết thì bỏ qua
                 if State.AutoRandom and RandomRemote then
-                    local hasKey = hasAnyKey()
-                    if hasKey then
+                    if hasAnyKey() then
                         StatusLabel.Text = "Random bằng " .. State.KeyType .. "..."
                         RandomRemote:FireServer(State.KeyType)
                         State.Stats.Rolled = State.Stats.Rolled + 1
@@ -264,7 +223,6 @@ local function startLoop()
                     end
                 end
 
-                -- Store
                 if State.AutoStore and StoreFruitRemote then
                     StatusLabel.Text = "Store fruit..."
                     StoreFruitRemote:FireServer()
@@ -282,7 +240,6 @@ StartButton.MouseButton1Click:Connect(function()
     if State.Running then startLoop() end
 end)
 
--- Cập nhật info mỗi 2s
 task.spawn(function()
     while GUI.Parent do
         if not State.Running then updateInfo() end
@@ -290,9 +247,6 @@ task.spawn(function()
     end
 end)
 
---==============================================================
--- KÉO GUI
---==============================================================
 local dragging, dragStart, startPos
 Frame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
