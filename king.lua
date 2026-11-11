@@ -1,180 +1,107 @@
-local Players          = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local Player    = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
+-- Script theo dõi chu kỳ Sea King -> Hydra
+-- Cố gắng đọc bộ đếm số La Mã (I, II, III) trên GUI của game
+-- Lưu ý: Script này phụ thuộc vào cấu trúc GUI của game,
+-- có thể không hoạt động nếu game thay đổi giao diện.
 
-local oldGui = PlayerGui:FindFirstChild("KingLegacyUnifiedTimer")
-if oldGui then oldGui:Destroy() end
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-local StartedAt = os.time()
-local Events = { SeaKing = nil, Hydra = nil, SeaEvent = nil }
-local ServerTimeEnabled = true
-local MenuVisible = true
-
-local EXPANDED  = UDim2.fromOffset(260, 305)
-local COLLAPSED = UDim2.fromOffset(260, 40)
-
+-- Tạo GUI hiển thị
 local GUI = Instance.new("ScreenGui")
-GUI.Name = "KingLegacyUnifiedTimer"
+GUI.Name = "KingLegacyHydraTracker"
 GUI.ResetOnSpawn = false
-GUI.IgnoreGuiInset = true
-GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GUI.Parent = PlayerGui
 
-local Main = Instance.new("Frame")
-Main.Size = EXPANDED
-Main.Position = UDim2.new(0.5, -130, 0.5, -152)
-Main.BackgroundColor3 = Color3.fromRGB(25, 27, 38)
-Main.BorderSizePixel = 0
-Main.Active = true
-Main.Parent = GUI
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 250, 0, 60)
+Frame.Position = UDim2.new(1, -260, 0, 10)
+Frame.BackgroundColor3 = Color3.fromRGB(25, 27, 38)
+Frame.BorderSizePixel = 0
+Frame.Parent = GUI
+Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
 
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
-local stroke = Instance.new("UIStroke", Main)
-stroke.Color = Color3.fromRGB(60, 70, 95)
-stroke.Thickness = 1
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, -20, 1, -10)
+StatusLabel.Position = UDim2.new(0, 10, 0, 5)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.TextColor3 = Color3.new(1, 1, 1)
+StatusLabel.TextSize = 13
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.TextWrap = true
+StatusLabel.Text = "Đang tìm bộ đếm Sea King..."
+StatusLabel.Parent = Frame
 
-local TitleBar = Instance.new("TextLabel")
-TitleBar.Size = UDim2.new(1, -44, 0, 34)
-TitleBar.Position = UDim2.fromOffset(10, 2)
-TitleBar.BackgroundTransparency = 1
-TitleBar.Font = Enum.Font.GothamBold
-TitleBar.TextSize = 14
-TitleBar.TextColor3 = Color3.new(1, 1, 1)
-TitleBar.TextXAlignment = Enum.TextXAlignment.Left
-TitleBar.Text = "KING LEGACY TIMER HUB"
-TitleBar.Active = true
-TitleBar.Parent = Main
-
-local Minimize = Instance.new("TextButton")
-Minimize.Size = UDim2.fromOffset(30, 30)
-Minimize.Position = UDim2.new(1, -36, 0, 3)
-Minimize.Text = "-"
-Minimize.Font = Enum.Font.GothamBold
-Minimize.BackgroundColor3 = Color3.fromRGB(70, 80, 110)
-Minimize.TextColor3 = Color3.new(1, 1, 1)
-Minimize.AutoButtonColor = true
-Minimize.Parent = Main
-Instance.new("UICorner", Minimize).CornerRadius = UDim.new(0, 6)
-
-local function Label(text, y)
-    local l = Instance.new("TextLabel")
-    l.Size = UDim2.new(1, -20, 0, 26)
-    l.Position = UDim2.fromOffset(10, y)
-    l.BackgroundTransparency = 1
-    l.TextColor3 = Color3.new(1, 1, 1)
-    l.TextSize = 13
-    l.Font = Enum.Font.Gotham
-    l.TextXAlignment = Enum.TextXAlignment.Left
-    l.Text = text
-    l.Parent = Main
-    return l
-end
-
-local function Button(text, y, callback)
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, -20, 0, 30)
-    b.Position = UDim2.fromOffset(10, y)
-    b.BackgroundColor3 = Color3.fromRGB(48, 60, 85)
-    b.TextColor3 = Color3.new(1, 1, 1)
-    b.TextSize = 12
-    b.Font = Enum.Font.Gotham
-    b.Text = text
-    b.AutoButtonColor = true
-    b.Parent = Main
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
-    b.MouseButton1Click:Connect(callback)
-    return b
-end
-
-local ServerLabel = Label("Server Time: 00:00:00", 38)
-local SeaLabel    = Label("Sea King: Not recorded", 65)
-local HydraLabel  = Label("Hydra: Not recorded", 92)
-local EventLabel  = Label("Sea Event: Not recorded", 119)
-
-local TimeToggle = Button("SERVER TIME: ON", 153, function()
-    ServerTimeEnabled = not ServerTimeEnabled
-    TimeToggle.Text = "SERVER TIME: " .. (ServerTimeEnabled and "ON" or "OFF")
-    ServerLabel.Visible = ServerTimeEnabled and MenuVisible
-end)
-
-local function Record(key, label, name)
-    Events[key] = os.time()
-    label.Text = name .. ": 00:00:00"
-end
-
-local BtnKing  = Button("RECORD SEA KING",  190, function() Record("SeaKing",  SeaLabel,  "Sea King") end)
-local BtnHydra = Button("RECORD HYDRA",     225, function() Record("Hydra",    HydraLabel, "Hydra")    end)
-local BtnEvent = Button("RECORD SEA EVENT", 260, function() Record("SeaEvent", EventLabel, "Sea Event") end)
-
-local CONTENT = { ServerLabel, SeaLabel, HydraLabel, EventLabel,
-                  TimeToggle, BtnKing, BtnHydra, BtnEvent }
-
-local function FormatTime(sec)
-    if sec < 0 then sec = 0 end
-    local h = math.floor(sec / 3600)
-    local m = math.floor((sec % 3600) / 60)
-    local s = sec % 60
-    return string.format("%02d:%02d:%02d", h, m, s)
-end
-
-local function SetMenu(visible)
-    MenuVisible = visible
-    for _, obj in ipairs(CONTENT) do
-        obj.Visible = visible
-    end
-    if visible then
-        ServerLabel.Visible = ServerTimeEnabled
-        Main.Size = EXPANDED
-        Minimize.Text = "-"
-    else
-        Main.Size = COLLAPSED
-        Minimize.Text = "+"
-    end
-end
-
-Minimize.MouseButton1Click:Connect(function()
-    SetMenu(not MenuVisible)
-end)
-
-do
-    local dragging, dragStart, startPos = false, nil, nil
-
-    TitleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragging  = true
-            dragStart = input.Position
-            startPos  = Main.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
+-- Hàm cố gắng tìm text chứa số La Mã (I, II, III) trong toàn bộ PlayerGui
+-- Đây là cách "hybrid": quét mọi TextLabel và TextButton
+local function findRomanNumeralCounter()
+    for _, gui in ipairs(PlayerGui:GetDescendants()) do
+        if gui:IsA("TextLabel") or gui:IsA("TextButton") then
+            local text = gui.Text
+            -- Tìm các mẫu phổ biến: "I", "II", "III", hoặc "1", "2", "3"
+            -- và phải nằm trong ngữ cảnh liên quan đến Sea King (nếu có)
+            if text == "I" or text == "II" or text == "III" then
+                -- Kiểm tra thêm: thường text này nằm gần một label khác có chữ "Sea King"
+                -- hoặc nằm trong một Frame có tên liên quan
+                return text, gui
+            end
+            -- Một số phiên bản có thể dùng số Ả Rập thay vì số La Mã
+            if text == "1" or text == "2" or text == "3" then
+                -- Chỉ chấp nhận nếu text ngắn (tránh nhầm với các số khác)
+                if #text == 1 then
+                    return text, gui
                 end
-            end)
+            end
         end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if not dragging then return end
-        if input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch then
-            local delta = input.Position - dragStart
-            Main.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
+    end
+    return nil, nil
 end
 
+-- Vòng lặp cập nhật
 task.spawn(function()
     while GUI.Parent do
-        if ServerTimeEnabled then
-            ServerLabel.Text = "Server Time: " .. FormatTime(os.time() - StartedAt)
+        local roman, obj = findRomanNumeralCounter()
+        if roman then
+            local num = 0
+            if roman == "I" or roman == "1" then num = 1
+            elseif roman == "II" or roman == "2" then num = 2
+            elseif roman == "III" or roman == "3" then num = 3
+            end
+
+            if num == 1 or num == 2 then
+                StatusLabel.Text = string.format(
+                    "Chu kỳ Sea King: %s\nHydra: CHƯA THỂ xuất hiện.", roman
+                )
+                StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+            elseif num == 3 then
+                StatusLabel.Text = string.format(
+                    "Chu kỳ Sea King: III\n→ Hạ Sea King này, Hydra sẽ xuất hiện sau 1 giờ!"
+                )
+                StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+            end
+        else
+            StatusLabel.Text = "Không tìm thấy bộ đếm.\nHãy chắc chắn bạn đang ở Sea 2 và đứng gần khu vực Sea King."
+            StatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
         end
-        if Events.SeaKing  then SeaLabel.Text   = "Sea King: "  .. FormatTime(os.time() - Events.SeaKing)  end
-        if Events.Hydra    then HydraLabel.Text = "Hydra: "     .. FormatTime(os.time() - Events.Hydra)    end
-        if Events.SeaEvent then EventLabel.Text = "Sea Event: " .. FormatTime(os.time() - Events.SeaEvent) end
-        task.wait(1)
+
+        task.wait(2)
     end
 end)
+
+-- Theo dõi thông báo Hydra xuất hiện (dự phòng)
+-- Khi Hydra spawn, server sẽ gửi thông báo "Hydra has appear in the sea"
+-- Script sẽ bắt thông báo này qua hook SetCore
+local StarterGui = game:GetService("StarterGui")
+local oldSetCore = StarterGui.SetCore
+StarterGui.SetCore = function(self, coreName, ...)
+    if coreName == "SendNotification" then
+        local args = {...}
+        local text = args[1] and args[1].Text or ""
+        if string.find(string.lower(text), "hydra") then
+            StatusLabel.Text = "⚠️ HYDRA ĐÃ XUẤT HIỆN!\nNó sẽ biến mất sau 20 phút."
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+        end
+    end
+    return oldSetCore(self, coreName, ...)
+end
